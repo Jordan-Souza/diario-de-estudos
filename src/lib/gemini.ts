@@ -9,7 +9,7 @@ export async function evaluateStudyDay(prompt: string) {
       model: 'gemini-2.5-flash',
       contents: prompt
     });
-    return response.text;
+    return response.text || '';
   } catch (error) {
     console.error("Erro ao chamar o Gemini:", error);
     return "Não foi possível carregar o feedback do seu Coach no momento. Verifique sua conexão ou tente novamente mais tarde.";
@@ -28,7 +28,7 @@ Regras estritas:
       model: 'gemini-2.5-flash',
       contents: prompt
     });
-    return response.text;
+    return response.text || '';
   } catch (error) {
     console.error("Erro ao gerar revisão rápida:", error);
     return "Erro ao gerar revisão rápida. Verifique a internet e tente novamente.";
@@ -119,7 +119,7 @@ Responda agora apenas com o JSON.`;
     });
     
     // Cleanup any potential thinking tags or markdown code blocks
-    let jsonText = response.text.trim();
+    let jsonText = response.text ? response.text.trim() : "";
     if (jsonText.includes('```')) {
       jsonText = jsonText.split('```')[1];
       if (jsonText.startsWith('json')) jsonText = jsonText.substring(4);

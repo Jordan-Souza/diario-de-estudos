@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { scheduleReviewTask } from '../lib/scheduler';
 import {
@@ -24,11 +24,11 @@ import { CSS } from '@dnd-kit/utilities';
 import { format, addDays, startOfWeek, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  ChevronLeft, ChevronRight, Plus, Pencil, Trash2, X, Check, Loader2, CheckCircle2, PlayCircle, Play, Pause, RotateCcw, Volume2
+  ChevronLeft, ChevronRight, Plus, Pencil, Trash2, X, Check, Loader2, CheckCircle2, PlayCircle
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { generateFullCurriculum, sessionsToPreviewSchedule, type FullCurriculum, type WeekSchedule } from '../lib/gemini';
 import { Sparkles, Trash } from 'lucide-react';
 import { PomodoroTimerDialog } from '../components/PomodoroTimerDialog';
