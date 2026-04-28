@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-main: #FFFFFF;
+  --bg-surface: #F9FAFB;
+  --bg-elevated: #FFFFFF;
+  --c-primary: #000000;
+  --text-main: #111827;
+  --text-muted: #6B7280;
+  --border-subtle: #E5E7EB;
+}
+
+[data-theme="dark"] {
+  --bg-main: #0A0A0A;
+  --bg-surface: #121212;
+  --bg-elevated: #1A1A1A;
+  --c-primary: #00E5FF; /* Cyan Neon */
+  --text-main: #F3F4F6;
+  --text-muted: #9CA3AF;
+  --border-subtle: #262626;
+}
+
+[data-theme="coffee"] {
+  --bg-main: #FDFBF7;
+  --bg-surface: #F4EFE6;
+  --bg-elevated: #FDFBF7;
+  --c-primary: #6F4E37;
+  --text-main: #4A3B32;
+  --text-muted: #8B7355;
+  --border-subtle: #E8DFD5;
+}
+
+@theme {
+  --color-background: var(--bg-main);
+  --color-surface: var(--bg-surface);
+  --color-elevated: var(--bg-elevated);
+  --color-primary: var(--c-primary);
+  --color-textMain: var(--text-main);
+  --color-textMuted: var(--text-muted);
+  --color-borderSubtle: var(--border-subtle);
+  --font-sans: 'Inter', sans-serif;
+  
+  /* Animations */
+  --animate-pulse-fast: pulse-fast 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+
+@layer base {
+  body {
+    @apply bg-background text-textMain antialiased font-sans transition-colors duration-500 ease-out;
+  }
+}
+
+.glass-panel {
+  @apply bg-surface/80 backdrop-blur-xl border border-borderSubtle shadow-sm rounded-lg transition-all duration-300;
+}
+
+/* Custom Webkit Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-borderSubtle rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-textMuted;
+}
