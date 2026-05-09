@@ -4,13 +4,14 @@ import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { CheckCircle2, PlayCircle, Plus, Loader2, RotateCcw, History, BrainCircuit, Zap, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, PlayCircle, Plus, Loader2, RotateCcw, History, BrainCircuit, Zap, AlertTriangle, ExternalLink } from 'lucide-react';
 import { scheduleReviewTask } from '../lib/scheduler';
 import { PomodoroTimerDialog } from '../components/PomodoroTimerDialog';
 import { generateFastReview } from '../lib/gemini';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
 import { FlashQuizDialog } from '../components/FlashQuizDialog';
 import { WrongQuestionsDialog } from '../components/WrongQuestionsDialog';
+import { TaskSessionDialog } from '../components/TaskSessionDialog';
 
 interface Task {
   id: string;
@@ -34,11 +35,8 @@ export function MicroCiclo() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [timerTask, setTimerTask] = useState<Task | null>(null);
   
-  // Completion modal states
-  const [dateDone, setDateDone] = useState(new Date().toISOString().split('T')[0]);
-  const [questions, setQuestions] = useState('');
-  const [correct, setCorrect] = useState('');
-  const [completing, setCompleting] = useState(false);
+  // Session dialog state
+  const [sessionDialogOpen, setSessionDialogOpen] = useState(false);
   
   // Bulk import states
   const [showBulk, setShowBulk] = useState(false);
@@ -179,36 +177,39 @@ export function MicroCiclo() {
     setLoading(false);
   };
 
-  const handleComplete = async () => {
-    if (!selectedTask || !questions || !correct || !dateDone) return;
-    setCompleting(true);
-    
-    await supabase
-      .from('tarefas_ciclo')
-      .update({
-        status: 'Concluído',
-        data_execucao: dateDone,
-        tot_questoes_feitas: Number(questions),
-        tot_acertos: Number(correct)
-      })
-      .eq('id', selectedTask.id);
+  // Called when user clicks "Registar e Pausar"
+  const handleSessionPause = () => {
+    setSessionDialogOpen(false);
+    setSelectedTask(null);
+    fetchTasks(); // refresh to show "Em Andamento" status
+  };
 
-    // Schedule automatic review based on performance
+  // Called when user clicks "Registar e Concluir"
+  const handleSessionComplete = async () => {
+    if (!selectedTask) return;
+
+    // Fetch latest totals from sessoes_tarefa for scheduling
+    const { data: allSessoes } = await supabase
+      .from('sessoes_tarefa')
+      .select('questoes_feitas, acertos')
+      .eq('tarefa_id', selectedTask.id);
+
+    const totQ = (allSessoes ?? []).reduce((acc: number, s: any) => acc + s.questoes_feitas, 0);
+    const totA = (allSessoes ?? []).reduce((acc: number, s: any) => acc + s.acertos, 0);
+
+    // Schedule automatic review based on accumulated performance
     await scheduleReviewTask({
       userId: selectedTask.user_id,
       disciplinaId: selectedTask.disciplina_id,
       tituloTarefa: selectedTask.titulo_tarefa,
-      totQuestoes: Number(questions),
-      totAcertos: Number(correct),
-      dataExecucao: dateDone
+      totQuestoes: totQ,
+      totAcertos: totA,
+      dataExecucao: new Date().toISOString().split('T')[0],
     });
 
+    setSessionDialogOpen(false);
     setSelectedTask(null);
-    setQuestions('');
-    setCorrect('');
-    setCompleting(false);
-    // Notify other pages (e.g., Cronograma completion dialog if open)
-    window.dispatchEvent(new CustomEvent('taskCompleted', { detail: { taskId: selectedTask?.id } }));
+    window.dispatchEvent(new CustomEvent('taskCompleted', { detail: { taskId: selectedTask.id } }));
     fetchTasks();
   };
 
@@ -256,10 +257,6 @@ export function MicroCiclo() {
     }
     setImporting(false);
   };
-
-  const performancePct = questions && correct
-    ? ((Number(correct) / Number(questions)) * 100)
-    : null;
 
   return (
     <div className="space-y-6">
@@ -376,13 +373,31 @@ export function MicroCiclo() {
                         </button>
 
                         <button
-                          onClick={() => setSelectedTask(task)}
+                          onClick={() => { setSelectedTask(task); setSessionDialogOpen(true); }}
                           className="flex-1 md:flex-none flex items-center justify-center gap-2 px-3 py-2 md:p-2 rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all active:scale-95"
-                          title="Marcar como concluída"
+                          title="Registar sessão / Concluir"
                         >
                           <CheckCircle2 className="w-4 h-4 md:w-5 md:h-5" />
                           <span className="text-[11px] font-bold md:hidden">OK</span>
                         </button>
+
+                        {/* Botão: Responder no TecConcursos */}
+                        <a
+                          href="https://www.tecconcursos.com.br/questoes"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => {
+                            // Abre o modal de sessão simultaneamente para o utilizador
+                            // poder activar o Live Sync assim que o TecConcursos abrir
+                            setSelectedTask(task);
+                            setSessionDialogOpen(true);
+                          }}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 md:px-2.5 md:py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all active:scale-95 no-underline"
+                          title="Responder questões no TecConcursos (abre live sync)"
+                        >
+                          <ExternalLink className="w-4 h-4 md:w-4 md:h-4 shrink-0" />
+                          <span className="text-[11px] font-bold md:hidden">TEC</span>
+                        </a>
                       </div>
                     </div>
                   ))}
@@ -401,8 +416,18 @@ export function MicroCiclo() {
         onClose={() => setTimerTask(null)}
         onFinish={() => {
           setSelectedTask(timerTask);
+          setSessionDialogOpen(true);
           setTimerTask(null);
         }}
+      />
+
+      {/* Task Session Dialog (Múltiplas Sessões + Caderno de Erros) */}
+      <TaskSessionDialog
+        task={selectedTask}
+        isOpen={sessionDialogOpen}
+        onClose={() => { setSessionDialogOpen(false); setSelectedTask(null); }}
+        onPause={handleSessionPause}
+        onComplete={handleSessionComplete}
       />
 
       <WrongQuestionsDialog
@@ -419,44 +444,7 @@ export function MicroCiclo() {
         onComplete={handleQuizComplete}
       />
 
-      {/* Completion Dialog */}
-      <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Finalizar Tarefa</DialogTitle>
-            <p className="text-sm text-textMuted">{selectedTask?.titulo_tarefa}</p>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-             <div className="space-y-2">
-               <label className="text-xs font-medium text-textMain">Data da Conclusão</label>
-               <Input type="date" value={dateDone} onChange={e => setDateDone(e.target.value)} />
-             </div>
-             <div className="flex gap-4">
-               <div className="space-y-2 flex-1">
-                 <label className="text-xs font-medium text-textMain">Questões Feitas</label>
-                 <Input type="number" min="0" placeholder="Ex: 20" value={questions} onChange={e => setQuestions(e.target.value)} />
-               </div>
-               <div className="space-y-2 flex-1">
-                 <label className="text-xs font-medium text-textMain">Acertos</label>
-                 <Input type="number" min="0" placeholder="Ex: 17" value={correct} onChange={e => setCorrect(e.target.value)} />
-               </div>
-             </div>
-             {performancePct !== null && (
-               <div className="pt-2 text-sm flex items-center gap-2">
-                 <span className="text-textMuted">Desempenho nesta tarefa:</span>
-                 <span className={`font-bold text-base ${performancePct >= 80 ? 'text-emerald-600' : performancePct < 70 ? 'text-red-500' : 'text-amber-600'}`}>
-                   {performancePct.toFixed(1)}%
-                 </span>
-                 {performancePct < 70 && <span className="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-medium">Revisão Necessária</span>}
-               </div>
-             )}
-          </div>
-          <Button className="w-full" onClick={handleComplete} disabled={completing || !questions || !correct}>
-             {completing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-             Confirmar Conclusão
-          </Button>
-        </DialogContent>
-      </Dialog>
+      {/* Completion Dialog — substituído por TaskSessionDialog acima */}
 
       {/* Bulk Import Dialog */}
       <Dialog open={showBulk} onOpenChange={setShowBulk}>

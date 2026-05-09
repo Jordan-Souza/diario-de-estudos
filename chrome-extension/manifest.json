@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "ERP Estudos - Caderno de Erros",
+  "short_name": "ERP Estudos",
+  "version": "2.1.0",
+  "description": "Captura automaticamente questoes erradas no TecConcursos e envia para o seu SaaS de estudos via Supabase.",
+
+  "minimum_chrome_version": "102",
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "ERP Estudos - Caderno de Erros"
+  },
+
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+
+  "host_permissions": [
+    "https://www.tecconcursos.com.br/*",
+    "https://orruikgtwqlctqtavlhw.supabase.co/*"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["https://www.tecconcursos.com.br/*"],
+      "js": ["content_script.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://orruikgtwqlctqtavlhw.supabase.co"
+  }
+}
