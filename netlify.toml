@@ -1,0 +1,24 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Variáveis de ambiente necessárias para o build
+# (Configurar também no painel do Netlify → Site Settings → Environment Variables)
+# VITE_SUPABASE_URL = "https://..."
+# VITE_SUPABASE_ANON_KEY = "..."
+# VITE_GEMINI_API_KEY = "..."
+
+# SPA: redirecionar todas as rotas para index.html (necessário para React Router)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers de segurança
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
