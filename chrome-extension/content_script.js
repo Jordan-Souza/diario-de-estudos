@@ -382,56 +382,49 @@ chrome.runtime.onMessage.addListener((msg) => {
     mostrarToast('Sessao resetada!', 'info');
     console.log('[ERP Estudos] Sessao resetada via popup.');
   }
+
+  // background.js confirma que salvou a tarefa no storage
+  if (msg.type === 'ERP_TASK_CONFIGURED') {
+    sessaoQuestoes = msg.questoes ?? 0;
+    sessaoAcertos  = msg.acertos ?? 0;
+    ultimaQuestaoEnviada = null;
+    const jwtInfo = msg.hasJwt ? ' (JWT actualizado)' : '';
+    mostrarToast(`Sessao iniciada: ${(msg.taskName || '').substring(0, 35)}${jwtInfo}`, 'sucesso');
+    console.log(`[ERP Estudos] Tarefa configurada pelo background: ${msg.taskId?.substring(0,8)}...`);
+  }
 });
 
-// ─── Inicialização: ler params da URL (vindos do botão TEC do SaaS) ───────────
+// ─── Inicialização: ler estado do storage (preenchido pelo background.js) ─────
 
 (async () => {
-  // ── Ler parâmetros injectados pelo botão "Responder no TEC" do SaaS ──────────
-  const params      = new URLSearchParams(window.location.search);
-  const urlTaskId   = params.get('erp_task_id');
-  const urlTaskName = params.get('erp_task_name');
-  const urlDisc     = params.get('erp_disc');
-  const urlJwt      = params.get('erp_jwt');   // JWT fresco da sessão Supabase do SaaS
+  // background.js captura os params da URL ao navegar e guarda no storage.
+  // Aqui apenas lemos o estado actual.
+  const config = await chrome.storage.local.get([
+    'erp_jwt_token', 'erp_task_id', 'erp_task_name',
+    'erp_sessao_questoes', 'erp_sessao_acertos',
+  ]);
 
-  if (urlTaskId) {
-    const toSave = {
-      [KEY_TASK_ID]:   urlTaskId,
-      [KEY_TASK_NAME]: urlTaskName || '',
-      [KEY_Q]: 0,
-      [KEY_A]: 0,
-      [KEY_E]: 0,
-    };
+  const jwt    = config['erp_jwt_token'];
+  const taskId = config['erp_task_id'];
 
-    // Guardar JWT fresco se vier na URL (vem sempre que o utilizador clica TEC no SaaS)
-    if (urlJwt && urlJwt.length > 50) {
-      toSave[KEY_JWT] = urlJwt;
-      const { expirado, segundosRestantes } = verificarJWT(urlJwt);
-      if (!expirado) {
-        console.log(`[ERP Estudos] JWT fresco recebido do SaaS. Válido por ${Math.floor(segundosRestantes/60)}m.`);
-      }
-    }
+  // Restaurar contadores da sessao (caso a pagina seja recarregada)
+  sessaoQuestoes = config['erp_sessao_questoes'] ?? 0;
+  sessaoAcertos  = config['erp_sessao_acertos']  ?? 0;
 
-    await chrome.storage.local.set(toSave);
-    sessaoQuestoes = 0;
-    sessaoAcertos  = 0;
-
-    console.log(`[ERP Estudos] ✓ Tarefa auto-configurada: "${urlTaskName}" (${urlTaskId?.substring(0,8)}...)`);
-    mostrarToast(`Sessão iniciada: ${(urlTaskName || '').substring(0, 35)}`, 'sucesso');
+  if (!jwt || !taskId) {
+    console.warn('[ERP Estudos] Nao configurado. Clique no botao TEC do Ciclo Diario para comecar.');
+    return;
   }
 
-  // Verificar JWT
-  const config = await chrome.storage.local.get([KEY_JWT, KEY_TASK_ID]);
-  const jwt    = config[KEY_JWT] || JWT_PADRAO;
-  const taskId = config[KEY_TASK_ID] || TASK_ID_PADRAO;
   const { expirado, segundosRestantes } = verificarJWT(jwt);
-
   if (expirado) {
-    console.warn('[ERP Estudos] JWT expirado. Actualize no popup.');
+    console.warn('[ERP Estudos] JWT expirado. Clique no botao TEC novamente para renovar.');
+    mostrarToast('JWT expirado. Clique TEC no Ciclo Diario para renovar.', 'aviso');
   } else {
-    console.log(`[ERP Estudos] Pronto. Tarefa: ${taskId.substring(0, 8)}... | JWT valido ${Math.floor(segundosRestantes/60)}m`);
+    console.log(`[ERP Estudos] Pronto | ${taskId.substring(0,8)}... | JWT ${Math.floor(segundosRestantes/60)}m`);
   }
 
   bindBotaoResolver();
   iniciarObserver();
 })();
+
