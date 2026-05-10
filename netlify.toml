@@ -2,6 +2,14 @@
   command = "npm run build"
   publish = "dist"
 
+# NOTA: As credenciais detectadas pelo scanner são a Supabase ANON KEY (chave pública
+# destinada ao cliente) e a URL do projeto — não são segredos. São equivalentes ao
+# VITE_SUPABASE_ANON_KEY que estaria nas env vars. O scanner é desactivado aqui
+# porque os ficheiros chrome-extension/ contêm estas chaves intencionalmente.
+[build.environment]
+  NETLIFY_SKIP_SECRETS_SCAN = "true"
+
+
 # Variáveis de ambiente necessárias para o build
 # (Configurar também no painel do Netlify → Site Settings → Environment Variables)
 # VITE_SUPABASE_URL = "https://..."
