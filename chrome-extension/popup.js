@@ -66,27 +66,23 @@ function setBadge(estado) {
 
 async function carregarEstado() {
   const data = await chrome.storage.local.get([
-    KEY_JWT, KEY_TASK_ID, KEY_TEC_URL, KEY_Q, KEY_A, KEY_E
+    KEY_JWT, KEY_TASK_ID, KEY_TEC_URL, KEY_Q, KEY_A, KEY_E, 'erp_task_name'
   ]);
 
   const jwt    = data[KEY_JWT]     || JWT_PADRAO;
   const taskId = data[KEY_TASK_ID] || TASK_PADRAO;
   const tecUrl = data[KEY_TEC_URL] || TEC_URL_PADRAO;
 
-  // Preencher painel de configuracao
   jwtInput.value    = data[KEY_JWT]     || '';
   taskInput.value   = data[KEY_TASK_ID] || '';
   tecUrlInput.value = data[KEY_TEC_URL] || '';
 
-  // Botao TecConcursos
   btnTec.href = tecUrl;
 
-  // Contadores
   cntQ.textContent = data[KEY_Q] ?? 0;
   cntA.textContent = data[KEY_A] ?? 0;
   cntE.textContent = data[KEY_E] ?? 0;
 
-  // Verificar JWT
   const { expirado, minutos } = verificarJWT(jwt);
   if (expirado) {
     setBadge('error');
@@ -98,10 +94,16 @@ async function carregarEstado() {
     setStatus('Pronto. Responda questoes no TecConcursos.', 'success');
   }
 
-  // Mostrar tarefa activa (buscar nome da tarefa via Supabase REST)
-  taskName.textContent = 'Tarefa: ' + taskId.substring(0, 8) + '...';
-  taskDisc.textContent  = '';
-  await buscarNomeTarefa(taskId, jwt);
+  // Mostrar nome da tarefa (lido do storage se auto-configurado pelo content_script)
+  const nomeStorage = data['erp_task_name'];
+  if (nomeStorage) {
+    taskName.textContent = nomeStorage;
+    taskDisc.textContent  = '';
+  } else {
+    taskName.textContent = 'Tarefa: ' + taskId.substring(0, 8) + '...';
+    taskDisc.textContent  = '';
+    await buscarNomeTarefa(taskId, jwt);
+  }
 }
 
 async function buscarNomeTarefa(taskId, jwt) {
@@ -170,11 +172,45 @@ function showSaveMsg(msg, tipo) {
 // ─── Botao: Resetar contadores da sessao ─────────────────────────────────────
 
 btnReset.addEventListener('click', async () => {
+  // 1. Zerar storage local
   await chrome.storage.local.set({ [KEY_Q]: 0, [KEY_A]: 0, [KEY_E]: 0 });
   cntQ.textContent = '0';
   cntA.textContent = '0';
   cntE.textContent = '0';
-  setStatus('Contadores resetados.', 'info');
+
+  // 2. Notificar content_script para zerar contadores em memória
+  chrome.tabs.query({ url: 'https://www.tecconcursos.com.br/*' }, (tabs) => {
+    tabs.forEach(tab => {
+      chrome.tabs.sendMessage(tab.id, { type: 'ERP_RESET_SESSION' }).catch(() => {});
+    });
+  });
+
+  // 3. Apagar registo live_tracking no Supabase (UPSERT com zeros)
+  const config = await chrome.storage.local.get([KEY_JWT, KEY_TASK_ID]);
+  const jwt    = config[KEY_JWT]     || JWT_PADRAO;
+  const taskId = config[KEY_TASK_ID] || TASK_PADRAO;
+  const { expirado } = verificarJWT(jwt);
+  if (!expirado) {
+    fetch(`https://orruikgtwqlctqtavlhw.supabase.co/rest/v1/live_tracking`, {
+      method: 'POST',
+      headers: {
+        'Accept':        'application/json',
+        'Content-Type':  'application/json',
+        'apikey':        'sb_publishable_vfZEtxZrzGOqfDjbdAemRQ_x7CPnpg_',
+        'Authorization': `Bearer ${jwt}`,
+        'Prefer':        'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({
+        tarefa_id:      taskId,
+        user_id:        '4b672f02-4da4-4a49-9bcb-1b79446dcf43',
+        questoes_total: 0,
+        acertos_total:  0,
+        updated_at:     new Date().toISOString(),
+      }),
+    }).catch(() => {});
+  }
+
+  setStatus('Sessao resetada! Contadores a zero.', 'info');
 });
 
 // ─── Botao TecConcursos — abrir e notificar content_script ───────────────────

@@ -383,12 +383,10 @@ export function MicroCiclo() {
 
                         {/* Botão: Responder no TecConcursos */}
                         <a
-                          href="https://www.tecconcursos.com.br/questoes"
+                          href={`https://www.tecconcursos.com.br/questoes?erp_task_id=${task.id}&erp_task_name=${encodeURIComponent(task.titulo_tarefa)}&erp_disc=${encodeURIComponent(task.nome_disciplina || '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={() => {
-                            // Abre o modal de sessão simultaneamente para o utilizador
-                            // poder activar o Live Sync assim que o TecConcursos abrir
                             setSelectedTask(task);
                             setSessionDialogOpen(true);
                           }}
