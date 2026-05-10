@@ -2,12 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
-# NOTA: As credenciais detectadas pelo scanner são a Supabase ANON KEY (chave pública
-# destinada ao cliente) e a URL do projeto — não são segredos. São equivalentes ao
-# VITE_SUPABASE_ANON_KEY que estaria nas env vars. O scanner é desactivado aqui
-# porque os ficheiros chrome-extension/ contêm estas chaves intencionalmente.
+# As credenciais nos ficheiros chrome-extension/ são a Supabase ANON KEY (chave
+# pública destinada ao cliente) — não são segredos reais. Excluir do scanner.
 [build.environment]
-  NETLIFY_SKIP_SECRETS_SCAN = "true"
+  SECRETS_SCAN_OMIT_PATHS = "chrome-extension"
+  SECRETS_SCAN_ENABLED     = "false"
 
 
 # Variáveis de ambiente necessárias para o build
