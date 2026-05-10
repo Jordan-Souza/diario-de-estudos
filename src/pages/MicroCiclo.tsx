@@ -381,21 +381,33 @@ export function MicroCiclo() {
                           <span className="text-[11px] font-bold md:hidden">OK</span>
                         </button>
 
-                        {/* Botão: Responder no TecConcursos */}
-                        <a
-                          href={`https://www.tecconcursos.com.br/questoes?erp_task_id=${task.id}&erp_task_name=${encodeURIComponent(task.titulo_tarefa)}&erp_disc=${encodeURIComponent(task.nome_disciplina || '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => {
+                        {/* Botão: Responder no TecConcursos — passa JWT fresco + task_id */}
+                        <button
+                          onClick={async () => {
+                            // 1. Buscar JWT válido da sessão actual do Supabase
+                            const { data: { session } } = await supabase.auth.getSession();
+                            const jwt = session?.access_token ?? '';
+
+                            // 2. Montar URL com todos os parâmetros para a extensao
+                            const params = new URLSearchParams({
+                              erp_task_id:   task.id,
+                              erp_task_name: task.titulo_tarefa,
+                              erp_disc:      task.nome_disciplina ?? '',
+                              erp_jwt:       jwt,
+                            });
+                            const url = `https://www.tecconcursos.com.br/questoes?${params.toString()}`;
+                            window.open(url, '_blank', 'noopener,noreferrer');
+
+                            // 3. Abrir modal de sessão para activar live sync
                             setSelectedTask(task);
                             setSessionDialogOpen(true);
                           }}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 md:px-2.5 md:py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all active:scale-95 no-underline"
-                          title="Responder questões no TecConcursos (abre live sync)"
+                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 py-2 md:px-2.5 md:py-2 rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-all active:scale-95"
+                          title="Responder questões no TecConcursos — sincroniza tarefa e JWT automaticamente"
                         >
-                          <ExternalLink className="w-4 h-4 md:w-4 md:h-4 shrink-0" />
+                          <ExternalLink className="w-4 h-4 shrink-0" />
                           <span className="text-[11px] font-bold md:hidden">TEC</span>
-                        </a>
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -387,25 +387,37 @@ chrome.runtime.onMessage.addListener((msg) => {
 // ─── Inicialização: ler params da URL (vindos do botão TEC do SaaS) ───────────
 
 (async () => {
-  // Ler parâmetros injectados pelo botão "Responder no TEC" do SaaS
-  const params     = new URLSearchParams(window.location.search);
-  const urlTaskId  = params.get('erp_task_id');
+  // ── Ler parâmetros injectados pelo botão "Responder no TEC" do SaaS ──────────
+  const params      = new URLSearchParams(window.location.search);
+  const urlTaskId   = params.get('erp_task_id');
   const urlTaskName = params.get('erp_task_name');
-  const urlDisc    = params.get('erp_disc');
+  const urlDisc     = params.get('erp_disc');
+  const urlJwt      = params.get('erp_jwt');   // JWT fresco da sessão Supabase do SaaS
 
   if (urlTaskId) {
-    // Auto-configurar tarefa e zerar contadores desta sessão
-    await chrome.storage.local.set({
+    const toSave = {
       [KEY_TASK_ID]:   urlTaskId,
       [KEY_TASK_NAME]: urlTaskName || '',
       [KEY_Q]: 0,
       [KEY_A]: 0,
       [KEY_E]: 0,
-    });
+    };
+
+    // Guardar JWT fresco se vier na URL (vem sempre que o utilizador clica TEC no SaaS)
+    if (urlJwt && urlJwt.length > 50) {
+      toSave[KEY_JWT] = urlJwt;
+      const { expirado, segundosRestantes } = verificarJWT(urlJwt);
+      if (!expirado) {
+        console.log(`[ERP Estudos] JWT fresco recebido do SaaS. Válido por ${Math.floor(segundosRestantes/60)}m.`);
+      }
+    }
+
+    await chrome.storage.local.set(toSave);
     sessaoQuestoes = 0;
     sessaoAcertos  = 0;
-    console.log(`[ERP Estudos] Tarefa auto-configurada: ${urlTaskName} (${urlTaskId})`);
-    mostrarToast(`Tarefa activa: ${(urlTaskName || '').substring(0, 40)}`, 'info');
+
+    console.log(`[ERP Estudos] ✓ Tarefa auto-configurada: "${urlTaskName}" (${urlTaskId?.substring(0,8)}...)`);
+    mostrarToast(`Sessão iniciada: ${(urlTaskName || '').substring(0, 35)}`, 'sucesso');
   }
 
   // Verificar JWT
